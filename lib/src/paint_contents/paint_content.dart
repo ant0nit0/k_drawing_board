@@ -27,6 +27,10 @@ abstract class PaintContent {
   /// 开始绘制
   void startDraw(Offset startPoint);
 
+  /// 获取绘制内容的边界框
+  /// 返回包含绘制内容的最小矩形，如果内容为空则返回null
+  Rect? get boundingBox;
+
   /// toJson
   Map<String, dynamic> toContentJson();
 

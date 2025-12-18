@@ -138,6 +138,9 @@ class Triangle extends PaintContent {
       'paint': paint.toJson(),
     };
   }
+
+  @override
+  Rect? get boundingBox => Rect.fromPoints(startPoint, startPoint + B);
 }
 
 /// Custom drawn image
@@ -198,6 +201,9 @@ class ImageContent extends PaintContent {
       'paint': paint.toJson(),
     };
   }
+
+  @override
+  Rect? get boundingBox => Rect.fromPoints(startPoint, startPoint + size);
 }
 
 void main() {
@@ -308,6 +314,11 @@ class _MyHomePageState extends State<MyHomePage> {
     _transformationController.value = Matrix4.identity();
   }
 
+  void _printBoundingBoxes() {
+    final Rect? boundingBox = _drawingController.getBoundingBox();
+    debugPrint('Bounding box: $boundingBox');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -348,6 +359,8 @@ class _MyHomePageState extends State<MyHomePage> {
         title: const Text('Drawing Test'),
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         actions: <Widget>[
+          IconButton(
+              icon: const Icon(Icons.print), onPressed: _printBoundingBoxes),
           IconButton(
               icon: const Icon(Icons.line_axis), onPressed: _addTestLine),
           IconButton(

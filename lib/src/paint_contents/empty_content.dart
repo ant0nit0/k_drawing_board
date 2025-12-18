@@ -23,6 +23,9 @@ class EmptyContent extends PaintContent {
   void startDraw(Offset startPoint) {}
 
   @override
+  Rect? get boundingBox => null;
+
+  @override
   Map<String, dynamic> toContentJson() {
     return <String, dynamic>{};
   }

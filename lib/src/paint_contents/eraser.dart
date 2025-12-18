@@ -40,6 +40,16 @@ class Eraser extends PaintContent {
   }
 
   @override
+  Rect? get boundingBox {
+    if (drawPath.path.getBounds().isEmpty) {
+      return null;
+    }
+    final Rect bounds = drawPath.path.getBounds();
+    final double halfStroke = paint.strokeWidth / 2;
+    return bounds.inflate(halfStroke);
+  }
+
+  @override
   Eraser copy() => Eraser();
 
   @override

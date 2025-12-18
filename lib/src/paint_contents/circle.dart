@@ -77,6 +77,29 @@ class Circle extends PaintContent {
   }
 
   @override
+  Rect? get boundingBox {
+    if (isEllipse) {
+      final Rect rect = Rect.fromPoints(startPoint, endPoint);
+      if (rect.isEmpty) {
+        return null;
+      }
+      if (paint.style == PaintingStyle.stroke) {
+        final double halfStroke = paint.strokeWidth / 2;
+        return rect.inflate(halfStroke);
+      }
+      return rect;
+    } else {
+      if (radius <= 0) {
+        return null;
+      }
+      final Offset centerPoint = startFromCenter ? startPoint : center;
+      final double halfStroke = paint.style == PaintingStyle.stroke ? paint.strokeWidth / 2 : 0;
+      final double totalRadius = radius + halfStroke;
+      return Rect.fromCircle(center: centerPoint, radius: totalRadius);
+    }
+  }
+
+  @override
   Circle copy() => Circle(isEllipse: isEllipse);
 
   @override

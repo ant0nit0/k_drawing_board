@@ -47,6 +47,19 @@ class Rectangle extends PaintContent {
   }
 
   @override
+  Rect? get boundingBox {
+    if (startPoint == null || endPoint == null) {
+      return null;
+    }
+    final Rect rect = Rect.fromPoints(startPoint!, endPoint!);
+    if (paint.style == PaintingStyle.stroke) {
+      final double halfStroke = paint.strokeWidth / 2;
+      return rect.inflate(halfStroke);
+    }
+    return rect;
+  }
+
+  @override
   Rectangle copy() => Rectangle();
 
   @override

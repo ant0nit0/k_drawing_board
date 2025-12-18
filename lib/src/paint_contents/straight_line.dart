@@ -44,6 +44,24 @@ class StraightLine extends PaintContent {
   }
 
   @override
+  Rect? get boundingBox {
+    if (startPoint == null || endPoint == null) {
+      return null;
+    }
+    final double halfStroke = paint.strokeWidth / 2;
+    final double minX = startPoint!.dx < endPoint!.dx ? startPoint!.dx : endPoint!.dx;
+    final double minY = startPoint!.dy < endPoint!.dy ? startPoint!.dy : endPoint!.dy;
+    final double maxX = startPoint!.dx > endPoint!.dx ? startPoint!.dx : endPoint!.dx;
+    final double maxY = startPoint!.dy > endPoint!.dy ? startPoint!.dy : endPoint!.dy;
+    return Rect.fromLTRB(
+      minX - halfStroke,
+      minY - halfStroke,
+      maxX + halfStroke,
+      maxY + halfStroke,
+    );
+  }
+
+  @override
   StraightLine copy() => StraightLine();
 
   @override

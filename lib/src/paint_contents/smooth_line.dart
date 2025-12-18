@@ -86,6 +86,37 @@ class SmoothLine extends PaintContent {
   }
 
   @override
+  Rect? get boundingBox {
+    if (points.isEmpty) {
+      return null;
+    }
+    double minX = points.first.dx;
+    double minY = points.first.dy;
+    double maxX = points.first.dx;
+    double maxY = points.first.dy;
+    double maxStrokeWidth = strokeWidthList.isNotEmpty ? strokeWidthList.first : paint.strokeWidth;
+
+    for (int i = 0; i < points.length; i++) {
+      final Offset point = points[i];
+      final double strokeWidth = i < strokeWidthList.length ? strokeWidthList[i] : paint.strokeWidth;
+      
+      minX = minX < point.dx ? minX : point.dx;
+      minY = minY < point.dy ? minY : point.dy;
+      maxX = maxX > point.dx ? maxX : point.dx;
+      maxY = maxY > point.dy ? maxY : point.dy;
+      maxStrokeWidth = maxStrokeWidth > strokeWidth ? maxStrokeWidth : strokeWidth;
+    }
+
+    final double halfStroke = maxStrokeWidth / 2;
+    return Rect.fromLTRB(
+      minX - halfStroke,
+      minY - halfStroke,
+      maxX + halfStroke,
+      maxY + halfStroke,
+    );
+  }
+
+  @override
   SmoothLine copy() => SmoothLine(brushPrecision: brushPrecision);
 
   @override

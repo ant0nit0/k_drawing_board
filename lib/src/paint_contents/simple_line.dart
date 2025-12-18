@@ -36,6 +36,16 @@ class SimpleLine extends PaintContent {
   void draw(Canvas canvas, Size size, bool deeper) => canvas.drawPath(path.path, paint);
 
   @override
+  Rect? get boundingBox {
+    if (path.path.getBounds().isEmpty) {
+      return null;
+    }
+    final Rect bounds = path.path.getBounds();
+    final double halfStroke = paint.strokeWidth / 2;
+    return bounds.inflate(halfStroke);
+  }
+
+  @override
   SimpleLine copy() => SimpleLine();
 
   @override
