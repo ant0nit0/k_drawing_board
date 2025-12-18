@@ -49,10 +49,14 @@ class StraightLine extends PaintContent {
       return null;
     }
     final double halfStroke = paint.strokeWidth / 2;
-    final double minX = startPoint!.dx < endPoint!.dx ? startPoint!.dx : endPoint!.dx;
-    final double minY = startPoint!.dy < endPoint!.dy ? startPoint!.dy : endPoint!.dy;
-    final double maxX = startPoint!.dx > endPoint!.dx ? startPoint!.dx : endPoint!.dx;
-    final double maxY = startPoint!.dy > endPoint!.dy ? startPoint!.dy : endPoint!.dy;
+    final double minX =
+        startPoint!.dx < endPoint!.dx ? startPoint!.dx : endPoint!.dx;
+    final double minY =
+        startPoint!.dy < endPoint!.dy ? startPoint!.dy : endPoint!.dy;
+    final double maxX =
+        startPoint!.dx > endPoint!.dx ? startPoint!.dx : endPoint!.dx;
+    final double maxY =
+        startPoint!.dy > endPoint!.dy ? startPoint!.dy : endPoint!.dy;
     return Rect.fromLTRB(
       minX - halfStroke,
       minY - halfStroke,
@@ -63,6 +67,15 @@ class StraightLine extends PaintContent {
 
   @override
   StraightLine copy() => StraightLine();
+
+  @override
+  PaintContent translate(Offset offset) {
+    return StraightLine.data(
+      startPoint: startPoint != null ? startPoint! + offset : null,
+      endPoint: endPoint != null ? endPoint! + offset : null,
+      paint: paint,
+    );
+  }
 
   @override
   Map<String, dynamic> toContentJson() {

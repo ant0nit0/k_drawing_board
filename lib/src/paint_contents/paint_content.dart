@@ -15,6 +15,8 @@ abstract class PaintContent {
   /// 复制实例，避免对象传递
   PaintContent copy();
 
+  PaintContent translate(Offset offset);
+
   /// 绘制核心方法
   /// * [deeper] 当前是否为底层绘制
   /// * 出于性能考虑

@@ -20,6 +20,12 @@ class Eraser extends PaintContent {
     );
   }
 
+  @override
+  PaintContent translate(Offset offset) => Eraser.data(
+        drawPath: drawPath.translate(offset),
+        paint: paint,
+      );
+
   /// 擦除路径
   DrawPath drawPath = DrawPath();
 

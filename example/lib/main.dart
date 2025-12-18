@@ -141,6 +141,17 @@ class Triangle extends PaintContent {
 
   @override
   Rect? get boundingBox => Rect.fromPoints(startPoint, startPoint + B);
+
+  @override
+  PaintContent translate(ui.Offset offset) {
+    return Triangle.data(
+      startPoint: startPoint + offset,
+      A: A + offset,
+      B: B + offset,
+      C: C + offset,
+      paint: paint,
+    );
+  }
 }
 
 /// Custom drawn image
@@ -204,6 +215,17 @@ class ImageContent extends PaintContent {
 
   @override
   Rect? get boundingBox => Rect.fromPoints(startPoint, startPoint + size);
+
+  @override
+  PaintContent translate(ui.Offset offset) {
+    return ImageContent.data(
+      startPoint: startPoint + offset,
+      size: size,
+      image: image,
+      imageUrl: imageUrl,
+      paint: paint,
+    );
+  }
 }
 
 void main() {

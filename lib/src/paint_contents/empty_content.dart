@@ -14,6 +14,9 @@ class EmptyContent extends PaintContent {
   PaintContent copy() => EmptyContent();
 
   @override
+  PaintContent translate(Offset offset) => EmptyContent();
+
+  @override
   void draw(Canvas canvas, Size size, bool deeper) {}
 
   @override

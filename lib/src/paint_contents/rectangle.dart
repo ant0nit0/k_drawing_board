@@ -63,6 +63,15 @@ class Rectangle extends PaintContent {
   Rectangle copy() => Rectangle();
 
   @override
+  PaintContent translate(Offset offset) {
+    return Rectangle.data(
+      startPoint: startPoint != null ? startPoint! + offset : null,
+      endPoint: endPoint != null ? endPoint! + offset : null,
+      paint: paint,
+    );
+  }
+
+  @override
   Map<String, dynamic> toContentJson() {
     return <String, dynamic>{
       'startPoint': startPoint?.toJson(),

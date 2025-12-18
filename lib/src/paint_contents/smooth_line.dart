@@ -23,8 +23,9 @@ class SmoothLine extends PaintContent {
       points: (data['points'] as List<dynamic>)
           .map((dynamic e) => jsonToOffset(e as Map<String, dynamic>))
           .toList(),
-      strokeWidthList:
-          (data['strokeWidthList'] as List<dynamic>).map((dynamic e) => e as double).toList(),
+      strokeWidthList: (data['strokeWidthList'] as List<dynamic>)
+          .map((dynamic e) => e as double)
+          .toList(),
       paint: jsonToPaint(data['paint'] as Map<String, dynamic>),
     );
   }
@@ -80,7 +81,8 @@ class SmoothLine extends PaintContent {
         Path()
           ..moveTo(points[i - 1].dx, points[i - 1].dy)
           ..lineTo(points[i].dx, points[i].dy),
-        paint.copyWith(strokeWidth: strokeWidthList[i], blendMode: BlendMode.src),
+        paint.copyWith(
+            strokeWidth: strokeWidthList[i], blendMode: BlendMode.src),
       );
     }
   }
@@ -94,17 +96,20 @@ class SmoothLine extends PaintContent {
     double minY = points.first.dy;
     double maxX = points.first.dx;
     double maxY = points.first.dy;
-    double maxStrokeWidth = strokeWidthList.isNotEmpty ? strokeWidthList.first : paint.strokeWidth;
+    double maxStrokeWidth =
+        strokeWidthList.isNotEmpty ? strokeWidthList.first : paint.strokeWidth;
 
     for (int i = 0; i < points.length; i++) {
       final Offset point = points[i];
-      final double strokeWidth = i < strokeWidthList.length ? strokeWidthList[i] : paint.strokeWidth;
-      
+      final double strokeWidth =
+          i < strokeWidthList.length ? strokeWidthList[i] : paint.strokeWidth;
+
       minX = minX < point.dx ? minX : point.dx;
       minY = minY < point.dy ? minY : point.dy;
       maxX = maxX > point.dx ? maxX : point.dx;
       maxY = maxY > point.dy ? maxY : point.dy;
-      maxStrokeWidth = maxStrokeWidth > strokeWidth ? maxStrokeWidth : strokeWidth;
+      maxStrokeWidth =
+          maxStrokeWidth > strokeWidth ? maxStrokeWidth : strokeWidth;
     }
 
     final double halfStroke = maxStrokeWidth / 2;
@@ -118,6 +123,16 @@ class SmoothLine extends PaintContent {
 
   @override
   SmoothLine copy() => SmoothLine(brushPrecision: brushPrecision);
+
+  @override
+  PaintContent translate(Offset offset) {
+    return SmoothLine.data(
+      brushPrecision: brushPrecision,
+      points: points.map((Offset point) => point + offset).toList(),
+      strokeWidthList: List<double>.from(strokeWidthList),
+      paint: paint,
+    );
+  }
 
   @override
   Map<String, dynamic> toContentJson() {

@@ -63,7 +63,8 @@ class Circle extends PaintContent {
   @override
   void drawing(Offset nowPoint) {
     endPoint = nowPoint;
-    center = Offset((startPoint.dx + endPoint.dx) / 2, (startPoint.dy + endPoint.dy) / 2);
+    center = Offset(
+        (startPoint.dx + endPoint.dx) / 2, (startPoint.dy + endPoint.dy) / 2);
     radius = (endPoint - (startFromCenter ? startPoint : center)).distance;
   }
 
@@ -93,7 +94,8 @@ class Circle extends PaintContent {
         return null;
       }
       final Offset centerPoint = startFromCenter ? startPoint : center;
-      final double halfStroke = paint.style == PaintingStyle.stroke ? paint.strokeWidth / 2 : 0;
+      final double halfStroke =
+          paint.style == PaintingStyle.stroke ? paint.strokeWidth / 2 : 0;
       final double totalRadius = radius + halfStroke;
       return Rect.fromCircle(center: centerPoint, radius: totalRadius);
     }
@@ -113,5 +115,18 @@ class Circle extends PaintContent {
       'endPoint': endPoint.toJson(),
       'paint': paint.toJson(),
     };
+  }
+
+  @override
+  PaintContent translate(Offset offset) {
+    return Circle.data(
+      isEllipse: isEllipse,
+      startFromCenter: startFromCenter,
+      center: center + offset,
+      radius: radius,
+      startPoint: startPoint + offset,
+      endPoint: endPoint + offset,
+      paint: paint,
+    );
   }
 }
