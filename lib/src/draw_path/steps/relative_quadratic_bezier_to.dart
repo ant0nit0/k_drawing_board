@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class RelativeQuadraticBezierTo extends OperationStep {
-  RelativeQuadraticBezierTo(this.x1, this.y1, this.x2, this.y2);
+  const RelativeQuadraticBezierTo(this.x1, this.y1, this.x2, this.y2);
 
   factory RelativeQuadraticBezierTo.fromJson(Map<String, dynamic> data) {
     return RelativeQuadraticBezierTo(
@@ -26,5 +28,11 @@ class RelativeQuadraticBezierTo extends OperationStep {
       'x2': x2,
       'y2': y2,
     };
+  }
+
+  @override
+  RelativeQuadraticBezierTo translate(Offset offset) {
+    return RelativeQuadraticBezierTo(
+        x1 + offset.dx, y1 + offset.dy, x2 + offset.dx, y2 + offset.dy);
   }
 }

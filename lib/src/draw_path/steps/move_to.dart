@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class MoveTo extends OperationStep {
@@ -17,5 +19,10 @@ class MoveTo extends OperationStep {
       'x': x,
       'y': y,
     };
+  }
+
+  @override
+  MoveTo translate(Offset offset) {
+    return MoveTo(x + offset.dx, y + offset.dy);
   }
 }

@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class LineTo extends OperationStep {
-  LineTo(this.x, this.y);
+  const LineTo(this.x, this.y);
 
   factory LineTo.fromJson(Map<String, dynamic> data) {
     return LineTo(
@@ -20,5 +22,10 @@ class LineTo extends OperationStep {
       'x': x,
       'y': y,
     };
+  }
+
+  @override
+  LineTo translate(Offset offset) {
+    return LineTo(x + offset.dx, y + offset.dy);
   }
 }

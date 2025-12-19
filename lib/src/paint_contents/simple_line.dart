@@ -51,7 +51,7 @@ class SimpleLine extends PaintContent {
   SimpleLine copy() => SimpleLine();
 
   @override
-  PaintContent translate(Offset offset) {
+  SimpleLine translate(Offset offset) {
     return SimpleLine.data(
       path: path.translate(offset),
       paint: paint,

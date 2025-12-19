@@ -6,7 +6,7 @@ import '../../paint_extension/ex_radius.dart';
 import 'operation_step.dart';
 
 class ArcToPoint extends OperationStep {
-  ArcToPoint(
+  const ArcToPoint(
     this.arcEnd,
     this.radius,
     this.rotation,
@@ -40,5 +40,16 @@ class ArcToPoint extends OperationStep {
       'largeArc': largeArc,
       'clockwise': clockwise,
     };
+  }
+
+  @override
+  ArcToPoint translate(Offset offset) {
+    return ArcToPoint(
+      arcEnd + offset,
+      radius,
+      rotation,
+      largeArc,
+      clockwise,
+    );
   }
 }

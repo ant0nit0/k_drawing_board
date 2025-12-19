@@ -6,7 +6,7 @@ import '../../paint_extension/ex_radius.dart';
 import 'operation_step.dart';
 
 class RelativeArcToPoint extends OperationStep {
-  RelativeArcToPoint(
+  const RelativeArcToPoint(
     this.arcEndDelta,
     this.radius,
     this.rotation,
@@ -40,5 +40,16 @@ class RelativeArcToPoint extends OperationStep {
       'largeArc': largeArc,
       'clockwise': clockwise,
     };
+  }
+
+  @override
+  RelativeArcToPoint translate(Offset offset) {
+    return RelativeArcToPoint(
+      arcEndDelta + offset,
+      radius,
+      rotation,
+      largeArc,
+      clockwise,
+    );
   }
 }

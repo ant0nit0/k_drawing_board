@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class RelativeConicTo extends OperationStep {
-  RelativeConicTo(this.x1, this.y1, this.x2, this.y2, this.w);
+  const RelativeConicTo(this.x1, this.y1, this.x2, this.y2, this.w);
 
   factory RelativeConicTo.fromJson(Map<String, dynamic> data) {
     return RelativeConicTo(
@@ -29,5 +31,16 @@ class RelativeConicTo extends OperationStep {
       'y2': y2,
       'w': w,
     };
+  }
+
+  @override
+  RelativeConicTo translate(Offset offset) {
+    return RelativeConicTo(
+      x1 + offset.dx,
+      y1 + offset.dy,
+      x2 + offset.dx,
+      y2 + offset.dy,
+      w + offset.dx,
+    );
   }
 }

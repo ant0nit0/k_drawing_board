@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class RelativeCubicTo extends OperationStep {
-  RelativeCubicTo(this.x1, this.y1, this.x2, this.y2, this.x3, this.y3);
+  const RelativeCubicTo(this.x1, this.y1, this.x2, this.y2, this.x3, this.y3);
 
   factory RelativeCubicTo.fromJson(Map<String, dynamic> data) {
     return RelativeCubicTo(
@@ -32,5 +34,17 @@ class RelativeCubicTo extends OperationStep {
       'x3': x3,
       'y3': y3,
     };
+  }
+
+  @override
+  RelativeCubicTo translate(Offset offset) {
+    return RelativeCubicTo(
+      x1 + offset.dx,
+      y1 + offset.dy,
+      x2 + offset.dx,
+      y2 + offset.dy,
+      x3 + offset.dx,
+      y3 + offset.dy,
+    );
   }
 }

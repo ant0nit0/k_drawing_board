@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class QuadraticBezierTo extends OperationStep {
-  QuadraticBezierTo(this.x1, this.y1, this.x2, this.y2);
+  const QuadraticBezierTo(this.x1, this.y1, this.x2, this.y2);
 
   factory QuadraticBezierTo.fromJson(Map<String, dynamic> data) {
     return QuadraticBezierTo(
@@ -26,5 +28,11 @@ class QuadraticBezierTo extends OperationStep {
       'x2': x2,
       'y2': y2,
     };
+  }
+
+  @override
+  QuadraticBezierTo translate(Offset offset) {
+    return QuadraticBezierTo(
+        x1 + offset.dx, y1 + offset.dy, x2 + offset.dx, y2 + offset.dy);
   }
 }

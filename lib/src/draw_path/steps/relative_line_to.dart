@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class RelativeLineTo extends OperationStep {
-  RelativeLineTo(this.dx, this.dy);
+  const RelativeLineTo(this.dx, this.dy);
 
   factory RelativeLineTo.fromJson(Map<String, dynamic> data) {
     return RelativeLineTo(
@@ -20,5 +22,10 @@ class RelativeLineTo extends OperationStep {
       'dx': dx,
       'dy': dy,
     };
+  }
+
+  @override
+  RelativeLineTo translate(Offset offset) {
+    return RelativeLineTo(dx + offset.dx, dy + offset.dy);
   }
 }

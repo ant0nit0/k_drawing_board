@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class ConicTo extends OperationStep {
-  ConicTo(this.x1, this.y1, this.x2, this.y2, this.w);
+  const ConicTo(this.x1, this.y1, this.x2, this.y2, this.w);
 
   factory ConicTo.fromJson(Map<String, dynamic> data) {
     return ConicTo(
@@ -29,5 +31,16 @@ class ConicTo extends OperationStep {
       'y2': y2,
       'w': w,
     };
+  }
+
+  @override
+  ConicTo translate(Offset offset) {
+    return ConicTo(
+      x1 + offset.dx,
+      y1 + offset.dy,
+      x2 + offset.dx,
+      y2 + offset.dy,
+      w + offset.dy,
+    );
   }
 }

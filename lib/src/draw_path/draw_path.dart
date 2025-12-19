@@ -294,7 +294,7 @@ class DrawPath {
   }
 
   void close() {
-    steps.add(PathClose());
+    steps.add(const PathClose());
     path.close();
   }
 
@@ -306,8 +306,12 @@ class DrawPath {
   /// Translate the path by the given offset
   /// Returns a new DrawPath with the translated path
   DrawPath translate(Offset offset) {
+    final List<OperationStep> translatedSteps = <OperationStep>[];
+    for (final OperationStep step in steps) {
+      translatedSteps.add(step.translate(offset));
+    }
     return DrawPath(
-      steps: List<OperationStep>.from(steps),
+      steps: List<OperationStep>.from(translatedSteps),
       type: path.fillType,
       path: path.shift(offset),
     );

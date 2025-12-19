@@ -1,7 +1,9 @@
+import 'dart:ui';
+
 import 'operation_step.dart';
 
 class RelativeMoveTo extends OperationStep {
-  RelativeMoveTo(this.dx, this.dy);
+  const RelativeMoveTo(this.dx, this.dy);
 
   factory RelativeMoveTo.fromJson(Map<String, dynamic> data) {
     return RelativeMoveTo(
@@ -20,5 +22,10 @@ class RelativeMoveTo extends OperationStep {
       'dx': dx,
       'dy': dy,
     };
+  }
+
+  @override
+  RelativeMoveTo translate(Offset offset) {
+    return RelativeMoveTo(dx + offset.dx, dy + offset.dy);
   }
 }

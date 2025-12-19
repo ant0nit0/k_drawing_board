@@ -5,7 +5,7 @@ import '../../paint_extension/ex_offset.dart';
 import 'operation_step.dart';
 
 class PathShift extends OperationStep {
-  PathShift(this.offset);
+  const PathShift(this.offset);
 
   factory PathShift.fromJson(Map<String, dynamic> data) {
     return PathShift(jsonToOffset(data['offset'] as Map<String, dynamic>));
@@ -19,5 +19,10 @@ class PathShift extends OperationStep {
       'type': 'shift',
       'offset': offset.toJson(),
     };
+  }
+
+  @override
+  PathShift translate(Offset offset) {
+    return PathShift(this.offset + offset);
   }
 }

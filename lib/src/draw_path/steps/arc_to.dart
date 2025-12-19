@@ -5,7 +5,7 @@ import '../../paint_extension/ex_rect.dart';
 import 'operation_step.dart';
 
 class ArcTo extends OperationStep {
-  ArcTo({
+  const ArcTo({
     required this.rect,
     required this.startAngle,
     required this.sweepAngle,
@@ -35,5 +35,15 @@ class ArcTo extends OperationStep {
       'sweepAngle': sweepAngle,
       'forceMoveTo': forceMoveTo,
     };
+  }
+
+  @override
+  ArcTo translate(Offset offset) {
+    return ArcTo(
+      rect: rect.shift(offset),
+      startAngle: startAngle,
+      sweepAngle: sweepAngle,
+      forceMoveTo: forceMoveTo,
+    );
   }
 }
