@@ -129,4 +129,17 @@ class Circle extends PaintContent {
       paint: paint,
     );
   }
+
+  @override
+  PaintContent resize(double scaleFactor) {
+    return Circle.data(
+      isEllipse: isEllipse,
+      startFromCenter: startFromCenter,
+      center: center * scaleFactor,
+      radius: radius * scaleFactor,
+      startPoint: startPoint * scaleFactor,
+      endPoint: endPoint * scaleFactor,
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+    );
+  }
 }

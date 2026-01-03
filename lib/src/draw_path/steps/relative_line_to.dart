@@ -28,4 +28,9 @@ class RelativeLineTo extends OperationStep {
   RelativeLineTo translate(Offset offset) {
     return RelativeLineTo(dx + offset.dx, dy + offset.dy);
   }
+
+  @override
+  RelativeLineTo resize(double scaleFactor) {
+    return RelativeLineTo(dx * scaleFactor, dy * scaleFactor);
+  }
 }

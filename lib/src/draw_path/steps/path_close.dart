@@ -20,4 +20,9 @@ class PathClose extends OperationStep {
   PathClose translate(Offset offset) {
     return const PathClose();
   }
+
+  @override
+  PathClose resize(double scaleFactor) {
+    return const PathClose();
+  }
 }

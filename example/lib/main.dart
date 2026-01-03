@@ -152,6 +152,17 @@ class Triangle extends PaintContent {
       paint: paint,
     );
   }
+
+  @override
+  PaintContent resize(double scaleFactor) {
+    return Triangle.data(
+      startPoint: startPoint * scaleFactor,
+      A: A * scaleFactor,
+      B: B * scaleFactor,
+      C: C * scaleFactor,
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+    );
+  }
 }
 
 /// Custom drawn image
@@ -224,6 +235,17 @@ class ImageContent extends PaintContent {
       image: image,
       imageUrl: imageUrl,
       paint: paint,
+    );
+  }
+
+  @override
+  PaintContent resize(double scaleFactor) {
+    return ImageContent.data(
+      startPoint: startPoint * scaleFactor,
+      size: size * scaleFactor,
+      image: image,
+      imageUrl: imageUrl,
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
     );
   }
 }

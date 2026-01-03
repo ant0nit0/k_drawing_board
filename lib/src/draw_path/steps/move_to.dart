@@ -25,4 +25,9 @@ class MoveTo extends OperationStep {
   MoveTo translate(Offset offset) {
     return MoveTo(x + offset.dx, y + offset.dy);
   }
+
+  @override
+  MoveTo resize(double scaleFactor) {
+    return MoveTo(x * scaleFactor, y * scaleFactor);
+  }
 }

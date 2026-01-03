@@ -28,4 +28,9 @@ class RelativeMoveTo extends OperationStep {
   RelativeMoveTo translate(Offset offset) {
     return RelativeMoveTo(dx + offset.dx, dy + offset.dy);
   }
+
+  @override
+  RelativeMoveTo resize(double scaleFactor) {
+    return RelativeMoveTo(dx * scaleFactor, dy * scaleFactor);
+  }
 }

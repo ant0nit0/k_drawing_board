@@ -43,4 +43,15 @@ class RelativeConicTo extends OperationStep {
       w + offset.dx,
     );
   }
+
+  @override
+  RelativeConicTo resize(double scaleFactor) {
+    return RelativeConicTo(
+      x1 * scaleFactor,
+      y1 * scaleFactor,
+      x2 * scaleFactor,
+      y2 * scaleFactor,
+      w,
+    );
+  }
 }

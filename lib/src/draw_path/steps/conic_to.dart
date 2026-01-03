@@ -43,4 +43,15 @@ class ConicTo extends OperationStep {
       w + offset.dy,
     );
   }
+
+  @override
+  ConicTo resize(double scaleFactor) {
+    return ConicTo(
+      x1 * scaleFactor,
+      y1 * scaleFactor,
+      x2 * scaleFactor,
+      y2 * scaleFactor,
+      w,
+    );
+  }
 }

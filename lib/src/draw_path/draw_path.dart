@@ -317,6 +317,77 @@ class DrawPath {
     );
   }
 
+  /// Resize the path by the given scale factor
+  /// Returns a new DrawPath with the resized path
+  DrawPath resize(double scaleFactor) {
+    final List<OperationStep> resizedSteps = <OperationStep>[];
+    final Path resizedPath = Path();
+    resizedPath.fillType = path.fillType;
+
+    for (final OperationStep step in steps) {
+      final OperationStep resizedStep = step.resize(scaleFactor);
+      resizedSteps.add(resizedStep);
+
+      // Rebuild the path with resized steps
+      if (resizedStep is MoveTo) {
+        resizedPath.moveTo(resizedStep.x, resizedStep.y);
+      } else if (resizedStep is LineTo) {
+        resizedPath.lineTo(resizedStep.x, resizedStep.y);
+      } else if (resizedStep is ArcTo) {
+        resizedPath.arcTo(resizedStep.rect, resizedStep.startAngle,
+            resizedStep.sweepAngle, resizedStep.forceMoveTo);
+      } else if (resizedStep is ArcToPoint) {
+        resizedPath.arcToPoint(
+          resizedStep.arcEnd,
+          radius: resizedStep.radius,
+          rotation: resizedStep.rotation,
+          largeArc: resizedStep.largeArc,
+          clockwise: resizedStep.clockwise,
+        );
+      } else if (resizedStep is ConicTo) {
+        resizedPath.conicTo(resizedStep.x1, resizedStep.y1, resizedStep.x2,
+            resizedStep.y2, resizedStep.w);
+      } else if (resizedStep is CubicTo) {
+        resizedPath.cubicTo(resizedStep.x1, resizedStep.y1, resizedStep.x2,
+            resizedStep.y2, resizedStep.x3, resizedStep.y3);
+      } else if (resizedStep is QuadraticBezierTo) {
+        resizedPath.quadraticBezierTo(
+            resizedStep.x1, resizedStep.y1, resizedStep.x2, resizedStep.y2);
+      } else if (resizedStep is RelativeArcToPoint) {
+        resizedPath.relativeArcToPoint(
+          resizedStep.arcEndDelta,
+          radius: resizedStep.radius,
+          rotation: resizedStep.rotation,
+          largeArc: resizedStep.largeArc,
+          clockwise: resizedStep.clockwise,
+        );
+      } else if (resizedStep is RelativeConicTo) {
+        resizedPath.relativeConicTo(resizedStep.x1, resizedStep.y1,
+            resizedStep.x2, resizedStep.y2, resizedStep.w);
+      } else if (resizedStep is RelativeCubicTo) {
+        resizedPath.relativeCubicTo(resizedStep.x1, resizedStep.y1,
+            resizedStep.x2, resizedStep.y2, resizedStep.x3, resizedStep.y3);
+      } else if (resizedStep is RelativeLineTo) {
+        resizedPath.relativeLineTo(resizedStep.dx, resizedStep.dy);
+      } else if (resizedStep is RelativeMoveTo) {
+        resizedPath.relativeMoveTo(resizedStep.dx, resizedStep.dy);
+      } else if (resizedStep is RelativeQuadraticBezierTo) {
+        resizedPath.relativeQuadraticBezierTo(
+            resizedStep.x1, resizedStep.y1, resizedStep.x2, resizedStep.y2);
+      } else if (resizedStep is PathShift) {
+        resizedPath.shift(resizedStep.offset);
+      } else if (resizedStep is PathClose) {
+        resizedPath.close();
+      }
+    }
+
+    return DrawPath(
+      steps: List<OperationStep>.from(resizedSteps),
+      type: path.fillType,
+      path: resizedPath,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'fillType': path.fillType.index,

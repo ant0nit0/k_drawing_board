@@ -17,6 +17,9 @@ class EmptyContent extends PaintContent {
   PaintContent translate(Offset offset) => EmptyContent();
 
   @override
+  PaintContent resize(double scaleFactor) => EmptyContent();
+
+  @override
   void draw(Canvas canvas, Size size, bool deeper) {}
 
   @override

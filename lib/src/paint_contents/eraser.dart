@@ -26,6 +26,12 @@ class Eraser extends PaintContent {
         paint: paint,
       );
 
+  @override
+  PaintContent resize(double scaleFactor) => Eraser.data(
+        drawPath: drawPath.resize(scaleFactor),
+        paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+      );
+
   /// 擦除路径
   DrawPath drawPath = DrawPath();
 

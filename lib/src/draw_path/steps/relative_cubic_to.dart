@@ -47,4 +47,16 @@ class RelativeCubicTo extends OperationStep {
       y3 + offset.dy,
     );
   }
+
+  @override
+  RelativeCubicTo resize(double scaleFactor) {
+    return RelativeCubicTo(
+      x1 * scaleFactor,
+      y1 * scaleFactor,
+      x2 * scaleFactor,
+      y2 * scaleFactor,
+      x3 * scaleFactor,
+      y3 * scaleFactor,
+    );
+  }
 }

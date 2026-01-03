@@ -78,6 +78,15 @@ class StraightLine extends PaintContent {
   }
 
   @override
+  PaintContent resize(double scaleFactor) {
+    return StraightLine.data(
+      startPoint: startPoint != null ? startPoint! * scaleFactor : null,
+      endPoint: endPoint != null ? endPoint! * scaleFactor : null,
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+    );
+  }
+
+  @override
   Map<String, dynamic> toContentJson() {
     return <String, dynamic>{
       'startPoint': startPoint?.toJson(),

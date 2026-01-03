@@ -135,6 +135,18 @@ class SmoothLine extends PaintContent {
   }
 
   @override
+  PaintContent resize(double scaleFactor) {
+    return SmoothLine.data(
+      brushPrecision: brushPrecision * scaleFactor,
+      points: points.map((Offset point) => point * scaleFactor).toList(),
+      strokeWidthList: strokeWidthList
+          .map((double width) => width * scaleFactor)
+          .toList(),
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+    );
+  }
+
+  @override
   Map<String, dynamic> toContentJson() {
     return <String, dynamic>{
       'brushPrecision': brushPrecision,

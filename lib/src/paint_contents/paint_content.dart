@@ -17,6 +17,10 @@ abstract class PaintContent {
 
   PaintContent translate(Offset offset);
 
+  /// Resize the content by the given scale factor
+  /// This will scale all coordinates and stroke width
+  PaintContent resize(double scaleFactor);
+
   /// 绘制核心方法
   /// * [deeper] 当前是否为底层绘制
   /// * 出于性能考虑

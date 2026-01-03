@@ -25,4 +25,9 @@ class PathShift extends OperationStep {
   PathShift translate(Offset offset) {
     return PathShift(this.offset + offset);
   }
+
+  @override
+  PathShift resize(double scaleFactor) {
+    return PathShift(offset * scaleFactor);
+  }
 }

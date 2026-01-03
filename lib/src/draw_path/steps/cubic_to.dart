@@ -47,4 +47,16 @@ class CubicTo extends OperationStep {
       y3 + offset.dy,
     );
   }
+
+  @override
+  CubicTo resize(double scaleFactor) {
+    return CubicTo(
+      x1 * scaleFactor,
+      y1 * scaleFactor,
+      x2 * scaleFactor,
+      y2 * scaleFactor,
+      x3 * scaleFactor,
+      y3 * scaleFactor,
+    );
+  }
 }

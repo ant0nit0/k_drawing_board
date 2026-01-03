@@ -421,6 +421,46 @@ class DrawingController extends ChangeNotifier {
     _refreshDeep();
   }
 
+  /// Resize the board and all its contents by the given scale factor
+  /// This will scale all drawing content, coordinates, and stroke widths
+  void resize(double scaleFactor) {
+    if (scaleFactor <= 0) {
+      return;
+    }
+
+    // Resize all history items
+    for (int i = 0; i < _history.length; i++) {
+      _history[i] = _history[i].resize(scaleFactor);
+    }
+
+    // Resize current content if it exists
+    if (currentContent != null) {
+      currentContent = currentContent!.resize(scaleFactor);
+    }
+
+    // Resize eraser content if it exists
+    if (eraserContent != null) {
+      eraserContent = eraserContent!.resize(scaleFactor);
+    }
+
+    // Resize the board size
+    if (drawConfig.value.size != null) {
+      final Size currentSize = drawConfig.value.size!;
+      setBoardSize(Size(
+        currentSize.width * scaleFactor,
+        currentSize.height * scaleFactor,
+      ));
+    }
+
+    // Clear cached image as it's now invalid
+    cachedImage = null;
+
+    // Refresh both canvases
+    _refresh();
+    _refreshDeep();
+    notifyListeners();
+  }
+
   /// Get image data
   Future<ByteData?> getImageData() async {
     try {

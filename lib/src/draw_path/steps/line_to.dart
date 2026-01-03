@@ -28,4 +28,9 @@ class LineTo extends OperationStep {
   LineTo translate(Offset offset) {
     return LineTo(x + offset.dx, y + offset.dy);
   }
+
+  @override
+  LineTo resize(double scaleFactor) {
+    return LineTo(x * scaleFactor, y * scaleFactor);
+  }
 }

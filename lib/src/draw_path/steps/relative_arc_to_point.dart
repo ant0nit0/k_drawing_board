@@ -52,4 +52,15 @@ class RelativeArcToPoint extends OperationStep {
       clockwise,
     );
   }
+
+  @override
+  RelativeArcToPoint resize(double scaleFactor) {
+    return RelativeArcToPoint(
+      arcEndDelta * scaleFactor,
+      Radius.elliptical(radius.x * scaleFactor, radius.y * scaleFactor),
+      rotation,
+      largeArc,
+      clockwise,
+    );
+  }
 }

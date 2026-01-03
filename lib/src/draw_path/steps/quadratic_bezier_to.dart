@@ -35,4 +35,14 @@ class QuadraticBezierTo extends OperationStep {
     return QuadraticBezierTo(
         x1 + offset.dx, y1 + offset.dy, x2 + offset.dx, y2 + offset.dy);
   }
+
+  @override
+  QuadraticBezierTo resize(double scaleFactor) {
+    return QuadraticBezierTo(
+      x1 * scaleFactor,
+      y1 * scaleFactor,
+      x2 * scaleFactor,
+      y2 * scaleFactor,
+    );
+  }
 }

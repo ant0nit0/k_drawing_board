@@ -46,4 +46,19 @@ class ArcTo extends OperationStep {
       forceMoveTo: forceMoveTo,
     );
   }
+
+  @override
+  ArcTo resize(double scaleFactor) {
+    return ArcTo(
+      rect: Rect.fromLTRB(
+        rect.left * scaleFactor,
+        rect.top * scaleFactor,
+        rect.right * scaleFactor,
+        rect.bottom * scaleFactor,
+      ),
+      startAngle: startAngle,
+      sweepAngle: sweepAngle,
+      forceMoveTo: forceMoveTo,
+    );
+  }
 }

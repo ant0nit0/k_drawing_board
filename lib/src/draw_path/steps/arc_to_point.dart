@@ -52,4 +52,15 @@ class ArcToPoint extends OperationStep {
       clockwise,
     );
   }
+
+  @override
+  ArcToPoint resize(double scaleFactor) {
+    return ArcToPoint(
+      arcEnd * scaleFactor,
+      Radius.elliptical(radius.x * scaleFactor, radius.y * scaleFactor),
+      rotation,
+      largeArc,
+      clockwise,
+    );
+  }
 }

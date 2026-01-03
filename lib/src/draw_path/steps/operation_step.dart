@@ -6,4 +6,6 @@ abstract class OperationStep {
   Map<String, dynamic> toJson();
 
   OperationStep translate(Offset offset);
+
+  OperationStep resize(double scaleFactor);
 }

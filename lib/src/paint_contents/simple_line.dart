@@ -59,6 +59,14 @@ class SimpleLine extends PaintContent {
   }
 
   @override
+  SimpleLine resize(double scaleFactor) {
+    return SimpleLine.data(
+      path: path.resize(scaleFactor),
+      paint: paint.copyWith(strokeWidth: paint.strokeWidth * scaleFactor),
+    );
+  }
+
+  @override
   Map<String, dynamic> toContentJson() {
     return <String, dynamic>{
       'path': path.toJson(),
