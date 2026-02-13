@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import '../draw_path/draw_path.dart';
 import '../paint_extension/ex_paint.dart';
@@ -48,7 +50,31 @@ class Eraser extends PaintContent {
 
   @override
   void draw(Canvas canvas, Size size, bool deeper) {
+    // Draw the erasing path
     canvas.drawPath(drawPath.path, paint.copyWith(blendMode: BlendMode.clear));
+    
+    // Draw circular border at current eraser position (only during surface drawing)
+    if (!deeper) {
+      final ui.PathMetrics metrics = drawPath.path.computeMetrics();
+      for (final ui.PathMetric metric in metrics) {
+        if (metric.length > 0) {
+          final ui.Tangent? tangent = metric.getTangentForOffset(metric.length);
+          if (tangent != null) {
+            final Offset currentPosition = tangent.position;
+            final double radius = paint.strokeWidth / 2;
+            
+            // Draw a circular border around the eraser
+            final Paint borderPaint = Paint()
+              ..color = Colors.grey.withOpacity(0.5)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.0;
+            
+            canvas.drawCircle(currentPosition, radius, borderPaint);
+            break; // Only draw one circle for the last point
+          }
+        }
+      }
+    }
   }
 
   @override
