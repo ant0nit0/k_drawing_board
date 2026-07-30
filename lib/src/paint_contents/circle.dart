@@ -55,6 +55,9 @@ class Circle extends PaintContent {
   String get contentType => 'Circle';
 
   @override
+  bool get supportsInputSmoothing => false;
+
+  @override
   void startDraw(Offset startPoint) {
     this.startPoint = startPoint;
     center = startPoint;

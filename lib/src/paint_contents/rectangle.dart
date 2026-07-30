@@ -32,6 +32,9 @@ class Rectangle extends PaintContent {
   String get contentType => 'Rectangle';
 
   @override
+  bool get supportsInputSmoothing => false;
+
+  @override
   void startDraw(Offset startPoint) => this.startPoint = startPoint;
 
   @override
