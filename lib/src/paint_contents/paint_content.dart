@@ -37,6 +37,14 @@ abstract class PaintContent {
   /// 返回包含绘制内容的最小矩形，如果内容为空则返回null
   Rect? get boundingBox;
 
+  /// Whether the controller may stabilise (smooth) the pointer positions fed
+  /// to [drawing].
+  ///
+  /// Free-hand contents follow every point, so smoothing them makes the stroke
+  /// cleaner. Contents that only keep an anchor and a moving end point (lines,
+  /// rectangles, circles) would just lag behind the finger, so they opt out.
+  bool get supportsInputSmoothing => true;
+
   /// toJson
   Map<String, dynamic> toContentJson();
 

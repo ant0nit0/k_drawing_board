@@ -29,6 +29,9 @@ class StraightLine extends PaintContent {
   String get contentType => 'StraightLine';
 
   @override
+  bool get supportsInputSmoothing => false;
+
+  @override
   void startDraw(Offset startPoint) => this.startPoint = startPoint;
 
   @override

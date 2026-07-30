@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -29,6 +30,8 @@ class DrawConfig {
     this.strokeJoin = StrokeJoin.round,
     this.strokeWidth = 4,
     this.style = PaintingStyle.stroke,
+    this.smoothness = 0,
+    this.inputScale = 1,
   });
 
   DrawConfig.def({
@@ -49,6 +52,8 @@ class DrawConfig {
     this.strokeJoin = StrokeJoin.round,
     this.strokeWidth = 4,
     this.style = PaintingStyle.stroke,
+    this.smoothness = 0,
+    this.inputScale = 1,
   });
 
   /// Rotation angle (0:0°, 1:90°, 2:180°, 3:270°)
@@ -59,6 +64,20 @@ class DrawConfig {
   final int fingerCount;
 
   final Size? size;
+
+  /// How much the incoming pointer positions are stabilised before they reach
+  /// the paint content, from `0` (raw input) to `1` (maximum stabilisation).
+  ///
+  /// Higher values filter out hand tremor and make it much easier to draw clean
+  /// shapes, at the cost of the stroke lagging behind the finger.
+  final double smoothness;
+
+  /// How far the board is magnified on screen, `1` being its resting size.
+  ///
+  /// Stabilisation grows with it: zoomed-in work is slow and deliberate, so
+  /// tremor makes up much more of the motion. Only read when [smoothness] is
+  /// above zero.
+  final double inputScale;
 
   /// Paint related properties
   final BlendMode blendMode;
@@ -109,6 +128,8 @@ class DrawConfig {
     int? angle,
     int? fingerCount,
     Size? size,
+    double? smoothness,
+    double? inputScale,
   }) {
     return DrawConfig(
       contentType: contentType ?? this.contentType,
@@ -128,6 +149,8 @@ class DrawConfig {
       style: style ?? this.style,
       fingerCount: fingerCount ?? this.fingerCount,
       size: size ?? this.size,
+      smoothness: smoothness ?? this.smoothness,
+      inputScale: inputScale ?? this.inputScale,
     );
   }
 }
@@ -143,6 +166,23 @@ class DrawingController extends ChangeNotifier {
         config ?? DrawConfig.def(contentType: SimpleLine));
     setPaintContent(content ?? SimpleLine());
   }
+
+  /// Fraction of the remaining distance covered per event at `smoothness == 1`.
+  /// The lower this is the harder the filter, and the more the stroke ignores
+  /// everything but the overall direction of travel — which is what makes long
+  /// clean curves easy to draw.
+  static const double _kMinFollow = 0.02;
+
+  /// Zoom level at which the extra stabilisation stops growing.
+  static const double _kMaxZoomBoost = 4.0;
+
+  /// How far the stabilised point may trail the finger at `smoothness == 1` and
+  /// no zoom, in board units.
+  static const double _kMaxLagAtRest = 48.0;
+
+  /// Number of interpolated points used to bring a stabilised stroke back onto
+  /// the real pointer position when the finger is lifted.
+  static const int _kSmoothingCatchUpSteps = 10;
 
   /// Drawing start point
   Offset? _startPoint;
@@ -162,7 +202,30 @@ class DrawingController extends ChangeNotifier {
   /// Eraser content
   PaintContent? eraserContent;
 
+  /// Raster snapshot of the committed history, only built while an eraser
+  /// stroke is in progress (the eraser needs real pixels to punch through).
   ui.Image? cachedImage;
+
+  /// Display list holding every committed content, so a repaint never has to
+  /// replay the whole history through Dart again. Extended one stroke at a
+  /// time instead of being rebuilt from scratch.
+  ui.Picture? _historyPicture;
+
+  /// Number of history entries already recorded into [_historyPicture].
+  int _historyPictureIndex = 0;
+
+  /// Board size [_historyPicture] was recorded for.
+  Size? _historyPictureSize;
+
+  /// Whether [_historyPicture] contains erasing (`BlendMode.clear`) operations
+  /// and therefore has to be composited through its own layer.
+  bool _historyPictureHasEraser = false;
+
+  /// Last stabilised pointer position of the stroke in progress.
+  Offset? _smoothedPoint;
+
+  /// Last raw (un-stabilised) pointer position of the stroke in progress.
+  Offset? _lastRawPoint;
 
   /// Bottom layer drawing content (drawing history)
   late List<PaintContent> _history;
@@ -259,6 +322,22 @@ class DrawingController extends ChangeNotifier {
     );
   }
 
+  /// Set how much the pointer input is stabilised, from `0` (raw input) to `1`
+  /// (maximum stabilisation). Values outside that range are clamped.
+  void setSmoothness(double smoothness) {
+    drawConfig.value =
+        drawConfig.value.copyWith(smoothness: smoothness.clamp(0.0, 1.0));
+  }
+
+  /// Tell the controller how far the board is magnified on screen so it can
+  /// stabilise zoomed-in strokes harder. `1` means the board is at rest.
+  void setInputScale(double scale) {
+    if (!scale.isFinite || scale <= 0) {
+      return;
+    }
+    drawConfig.value = drawConfig.value.copyWith(inputScale: scale);
+  }
+
   /// Set drawing content
   void setPaintContent(PaintContent content) {
     content.paint = drawConfig.value.paint;
@@ -271,7 +350,7 @@ class DrawingController extends ChangeNotifier {
   void addContent(PaintContent content) {
     _history.add(content);
     _currentIndex++;
-    cachedImage = null;
+    _disposeCachedImage();
     _refreshDeep();
   }
 
@@ -279,7 +358,7 @@ class DrawingController extends ChangeNotifier {
   void addContents(List<PaintContent> contents) {
     _history.addAll(contents);
     _currentIndex += contents.length;
-    cachedImage = null;
+    _disposeCachedImage();
     _refreshDeep();
   }
 
@@ -297,7 +376,12 @@ class DrawingController extends ChangeNotifier {
     }
 
     _startPoint = startPoint;
+    _smoothedPoint = startPoint;
+    _lastRawPoint = startPoint;
     if (_paintContent is Eraser) {
+      // The eraser punches through the already drawn pixels, so it needs a
+      // raster of the history. Build it once here rather than on every repaint.
+      _ensureEraserSnapshot();
       eraserContent = _paintContent.copy();
       eraserContent?.paint = drawConfig.value.paint.copyWith();
       eraserContent?.startDraw(startPoint);
@@ -313,6 +397,9 @@ class DrawingController extends ChangeNotifier {
     _startPoint = null;
     currentContent = null;
     eraserContent = null;
+    _smoothedPoint = null;
+    _lastRawPoint = null;
+    _disposeCachedImage();
   }
 
   /// Drawing in progress
@@ -322,13 +409,14 @@ class DrawingController extends ChangeNotifier {
     }
 
     _isDrawingValidContent = true;
+    _lastRawPoint = nowPaint;
 
     if (_paintContent is Eraser) {
-      eraserContent?.drawing(nowPaint);
+      eraserContent?.drawing(_stabilise(nowPaint, eraserContent));
       _refresh();
       _refreshDeep();
     } else {
-      currentContent?.drawing(nowPaint);
+      currentContent?.drawing(_stabilise(nowPaint, currentContent));
       _refresh();
     }
   }
@@ -344,16 +432,29 @@ class DrawingController extends ChangeNotifier {
       _startPoint = null;
       currentContent = null;
       eraserContent = null;
+      _smoothedPoint = null;
+      _lastRawPoint = null;
+      _disposeCachedImage();
       return;
     }
 
     _isDrawingValidContent = false;
 
+    _catchUpSmoothing();
+
     _startPoint = null;
+    _smoothedPoint = null;
+    _lastRawPoint = null;
     final int hisLen = _history.length;
 
     if (hisLen > _currentIndex) {
       _history.removeRange(_currentIndex, hisLen);
+      // Drawing after an undo drops the redo tail. If the cached render still
+      // holds those entries it is stale, and appending onto it would keep a
+      // stroke the user just replaced.
+      if (_historyPictureIndex > _currentIndex) {
+        _invalidateHistoryPicture();
+      }
     }
 
     if (eraserContent != null) {
@@ -368,6 +469,8 @@ class DrawingController extends ChangeNotifier {
       currentContent = null;
     }
 
+    _disposeCachedImage();
+
     _refresh();
     _refreshDeep();
     notifyListeners();
@@ -375,7 +478,7 @@ class DrawingController extends ChangeNotifier {
 
   /// Undo
   void undo() {
-    cachedImage = null;
+    _disposeCachedImage();
     if (_currentIndex > 0) {
       _currentIndex = _currentIndex - 1;
       _refreshDeep();
@@ -395,7 +498,7 @@ class DrawingController extends ChangeNotifier {
 
   /// Redo
   void redo() {
-    cachedImage = null;
+    _disposeCachedImage();
     if (_currentIndex < _history.length) {
       _currentIndex = _currentIndex + 1;
       _refreshDeep();
@@ -415,7 +518,7 @@ class DrawingController extends ChangeNotifier {
 
   /// Clear canvas
   void clear() {
-    cachedImage = null;
+    _invalidateHistoryPicture();
     _history.clear();
     _currentIndex = 0;
     _refreshDeep();
@@ -452,8 +555,8 @@ class DrawingController extends ChangeNotifier {
       ));
     }
 
-    // Clear cached image as it's now invalid
-    cachedImage = null;
+    // Every content changed in place, so the cached render is now invalid
+    _invalidateHistoryPicture();
 
     // Refresh both canvases
     _refresh();
@@ -514,6 +617,185 @@ class DrawingController extends ChangeNotifier {
     return combinedBounds;
   }
 
+  // ---------------------------------------------------------------------
+  // Cached history rendering
+  // ---------------------------------------------------------------------
+
+  /// Whether [historyPicture] has to be drawn through its own layer because it
+  /// contains erasing operations.
+  bool get historyPictureNeedsLayer => _historyPictureHasEraser;
+
+  /// A display list containing every committed content up to [currentIndex],
+  /// recorded for a board of [size].
+  ///
+  /// Replaying it is orders of magnitude cheaper than calling
+  /// [PaintContent.draw] on every history entry again, which matters a lot for
+  /// the textured brushes: they emit hundreds of primitives per stroke. The
+  /// picture is extended one stroke at a time, so committing a stroke costs the
+  /// same whether the drawing holds 3 strokes or 300.
+  ///
+  /// Returns `null` when there is nothing to draw.
+  ui.Picture? historyPicture(Size size) {
+    final int end = _currentIndex < _history.length
+        ? _currentIndex
+        : _history.length;
+
+    if (end <= 0) {
+      _invalidateHistoryPicture();
+      return null;
+    }
+
+    final bool sameSize = _historyPictureSize == size;
+    if (sameSize && _historyPicture != null && _historyPictureIndex == end) {
+      return _historyPicture;
+    }
+
+    // Undo (and anything that rewrote the history) can only be honoured by
+    // recording from scratch; new strokes are appended onto what we already
+    // recorded.
+    final bool canAppend =
+        sameSize && _historyPicture != null && end > _historyPictureIndex;
+    final int start = canAppend ? _historyPictureIndex : 0;
+
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder, Offset.zero & size);
+
+    bool hasEraser = canAppend && _historyPictureHasEraser;
+    if (canAppend) {
+      canvas.drawPicture(_historyPicture!);
+    }
+    for (int i = start; i < end; i++) {
+      final PaintContent content = _history[i];
+      hasEraser = hasEraser || content is Eraser;
+      content.draw(canvas, size, true);
+    }
+
+    final ui.Picture picture = recorder.endRecording();
+
+    // Safe to release: the recording above keeps its own reference to the
+    // previous picture's display list.
+    _historyPicture?.dispose();
+    _historyPicture = picture;
+    _historyPictureIndex = end;
+    _historyPictureSize = size;
+    _historyPictureHasEraser = hasEraser;
+    _disposeCachedImage();
+
+    return picture;
+  }
+
+  /// Drop the cached render. The next paint records it again from the history.
+  void _invalidateHistoryPicture() {
+    _historyPicture?.dispose();
+    _historyPicture = null;
+    _historyPictureIndex = 0;
+    _historyPictureSize = null;
+    _historyPictureHasEraser = false;
+    _disposeCachedImage();
+  }
+
+  void _disposeCachedImage() {
+    cachedImage?.dispose();
+    cachedImage = null;
+  }
+
+  /// Rasterise the committed history so the eraser has pixels to punch through.
+  void _ensureEraserSnapshot() {
+    if (cachedImage != null) {
+      return;
+    }
+    final Size? size = _historyPictureSize ?? drawConfig.value.size;
+    if (size == null || size.isEmpty) {
+      return;
+    }
+    final ui.Picture? picture = historyPicture(size);
+    if (picture == null) {
+      return;
+    }
+    cachedImage = picture.toImageSync(
+      size.width.ceil(),
+      size.height.ceil(),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Pointer stabilisation
+  // ---------------------------------------------------------------------
+
+  /// How much of the remaining distance the stabilised point covers per event.
+  ///
+  /// The slider maps geometrically rather than linearly, so every step lengthens
+  /// the filter's time constant by the same factor instead of crowding all the
+  /// useful values at the top of the range.
+  ///
+  /// Zooming in gets extra help: at high magnification the hand moves slowly and
+  /// deliberately, so tremor makes up much more of the motion and needs harder
+  /// filtering to keep a curve clean.
+  double _followFactor(double smoothness) {
+    final double base = math.pow(_kMinFollow, smoothness).toDouble();
+    final double zoom = drawConfig.value.inputScale.clamp(1.0, _kMaxZoomBoost);
+    return (base / math.sqrt(zoom)).clamp(0.0, 1.0);
+  }
+
+  /// Longest distance the stabilised point may trail the finger, in board units.
+  ///
+  /// Without this the strongest settings would fall arbitrarily far behind on a
+  /// fast stroke. Dividing by the zoom keeps the trailing distance constant on
+  /// screen, so the stroke feels the same however far the canvas is zoomed in.
+  double _maxLag(double smoothness) {
+    final double zoom = drawConfig.value.inputScale.clamp(1.0, _kMaxZoomBoost);
+    return _kMaxLagAtRest * smoothness / zoom;
+  }
+
+  /// Pull the previous position part of the way towards [raw] instead of
+  /// jumping to it, which filters out hand tremor and makes clean shapes far
+  /// easier to draw.
+  Offset _stabilise(Offset raw, PaintContent? content) {
+    final double smoothness = drawConfig.value.smoothness.clamp(0.0, 1.0);
+    final Offset? previous = _smoothedPoint;
+    if (smoothness <= 0 ||
+        previous == null ||
+        !(content?.supportsInputSmoothing ?? true)) {
+      _smoothedPoint = raw;
+      return raw;
+    }
+
+    Offset smoothed = previous + (raw - previous) * _followFactor(smoothness);
+
+    // Leash the point to the finger so heavy smoothing stays usable.
+    final Offset behind = raw - smoothed;
+    final double lag = behind.distance;
+    final double maxLag = _maxLag(smoothness);
+    if (lag > maxLag) {
+      smoothed = raw - behind * (maxLag / lag);
+    }
+
+    _smoothedPoint = smoothed;
+    return smoothed;
+  }
+
+  /// Bring the stabilised stroke back onto the last real pointer position, so a
+  /// stroke always ends where the finger was lifted instead of trailing behind.
+  void _catchUpSmoothing() {
+    final PaintContent? content = eraserContent ?? currentContent;
+    final Offset? raw = _lastRawPoint;
+    final Offset? smoothed = _smoothedPoint;
+    if (content == null ||
+        raw == null ||
+        smoothed == null ||
+        !content.supportsInputSmoothing ||
+        (raw - smoothed).distance <= 1) {
+      return;
+    }
+
+    for (int i = 1; i <= _kSmoothingCatchUpSteps; i++) {
+      content.drawing(
+        Offset.lerp(smoothed, raw, i / _kSmoothingCatchUpSteps)!,
+      );
+    }
+    _smoothedPoint = raw;
+  }
+
   /// Refresh surface canvas
   void _refresh() {
     painter?._refresh();
@@ -534,6 +816,7 @@ class DrawingController extends ChangeNotifier {
     drawConfig.dispose();
     realPainter?.dispose();
     painter?.dispose();
+    _invalidateHistoryPicture();
 
     _mounted = false;
 

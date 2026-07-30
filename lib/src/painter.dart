@@ -2,10 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import '../paint_contents.dart';
 import 'drawing_controller.dart';
 import 'helper/ex_value_builder.dart';
-import 'paint_contents/paint_content.dart';
 
 /// 绘图板
 class Painter extends StatelessWidget {
@@ -169,36 +167,27 @@ class _DeepPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // While erasing, the surface painter shows the snapshot with the eraser
+    // applied on top, so the bottom layer stays empty.
     if (controller.eraserContent != null) {
       return;
     }
 
-    final List<PaintContent> contents = <PaintContent>[
-      ...controller.getHistory,
-      if (controller.eraserContent != null) controller.eraserContent!,
-    ];
-
-    if (contents.isEmpty) {
+    final ui.Picture? picture = controller.historyPicture(size);
+    if (picture == null) {
       return;
     }
 
-    final ui.PictureRecorder recorder = ui.PictureRecorder();
-    final Canvas tempCanvas =
-        Canvas(recorder, Rect.fromPoints(Offset.zero, size.bottomRight(Offset.zero)));
-
-    canvas.saveLayer(Offset.zero & size, Paint());
-
-    for (int i = 0; i < controller.currentIndex; i++) {
-      contents[i].draw(canvas, size, true);
-      contents[i].draw(tempCanvas, size, true);
+    // Erasing draws with BlendMode.clear, which must not reach through to
+    // whatever sits behind the board — so it needs its own layer. Drawings
+    // without an eraser stroke can skip that offscreen buffer entirely.
+    if (controller.historyPictureNeedsLayer) {
+      canvas.saveLayer(Offset.zero & size, Paint());
+      canvas.drawPicture(picture);
+      canvas.restore();
+    } else {
+      canvas.drawPicture(picture);
     }
-
-    canvas.restore();
-
-    final ui.Picture picture = recorder.endRecording();
-    picture.toImage(size.width.toInt(), size.height.toInt()).then((ui.Image value) {
-      controller.cachedImage = value;
-    });
   }
 
   @override
