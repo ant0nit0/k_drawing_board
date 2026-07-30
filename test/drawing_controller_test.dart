@@ -94,18 +94,66 @@ void main() {
       controller.dispose();
     });
 
-    test('lags behind the pointer while smoothing', () {
+    test('barely follows a small move at full smoothness', () {
       final DrawingController controller =
           DrawingController(content: _RecordingContent());
       controller.setSmoothness(1);
 
       controller.startDraw(Offset.zero);
-      controller.drawing(const Offset(100, 0));
+      controller.drawing(const Offset(10, 0));
       final _RecordingContent content =
           controller.currentContent! as _RecordingContent;
 
-      // 0.9 max smoothing => the point only follows 10% of the distance.
-      expect(content.points.last.dx, closeTo(10, 0.001));
+      // 0.02 follow at full smoothness: 2% of a 10pt move.
+      expect(content.points.last.dx, closeTo(0.2, 0.001));
+      controller.dispose();
+    });
+
+    test('never trails the finger further than the leash', () {
+      final DrawingController controller =
+          DrawingController(content: _RecordingContent());
+      controller.setSmoothness(1);
+
+      // A long fast stroke would leave a pure filter arbitrarily far behind.
+      controller.startDraw(Offset.zero);
+      for (int i = 1; i <= 20; i++) {
+        controller.drawing(Offset(i * 200, 0));
+      }
+      final _RecordingContent content =
+          controller.currentContent! as _RecordingContent;
+
+      expect(4000 - content.points.last.dx, lessThanOrEqualTo(48.001));
+      controller.dispose();
+    });
+
+    test('stabilises harder the further the canvas is zoomed in', () {
+      double followedDistance(double zoom) {
+        final DrawingController controller =
+            DrawingController(content: _RecordingContent());
+        controller.setSmoothness(1);
+        controller.setInputScale(zoom);
+        controller.startDraw(Offset.zero);
+        controller.drawing(const Offset(10, 0));
+        final double dx =
+            (controller.currentContent! as _RecordingContent).points.last.dx;
+        controller.dispose();
+        return dx;
+      }
+
+      // Following less of the move means more of the tremor is filtered out.
+      expect(followedDistance(4), lessThan(followedDistance(1)));
+      expect(followedDistance(2), lessThan(followedDistance(1)));
+    });
+
+    test('ignores a zero or non-finite input scale', () {
+      final DrawingController controller = DrawingController();
+      controller.setInputScale(3);
+
+      controller.setInputScale(0);
+      expect(controller.drawConfig.value.inputScale, 3);
+
+      controller.setInputScale(double.nan);
+      expect(controller.drawConfig.value.inputScale, 3);
       controller.dispose();
     });
 
