@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -104,8 +105,8 @@ void main() {
       final _RecordingContent content =
           controller.currentContent! as _RecordingContent;
 
-      // 0.02 follow at full smoothness: 2% of a 10pt move.
-      expect(content.points.last.dx, closeTo(0.2, 0.001));
+      // Two passes at full smoothness: 1.5% of a 10pt move, then 15% of that.
+      expect(content.points.last.dx, closeTo(0.0225, 0.0001));
       controller.dispose();
     });
 
@@ -122,8 +123,37 @@ void main() {
       final _RecordingContent content =
           controller.currentContent! as _RecordingContent;
 
-      expect(4000 - content.points.last.dx, lessThanOrEqualTo(48.001));
+      expect(4000 - content.points.last.dx, lessThanOrEqualTo(160.001));
       controller.dispose();
+    });
+
+    test('flattens hand tremor at full smoothness', () {
+      // A straight drag with a perpendicular wobble on top of it: what a shaky
+      // hand actually hands the controller.
+      List<Offset> stroke(double smoothness) {
+        final DrawingController controller =
+            DrawingController(content: _RecordingContent());
+        controller.setSmoothness(smoothness);
+        controller.startDraw(Offset.zero);
+        for (int i = 1; i <= 150; i++) {
+          controller.drawing(Offset(i * 3, math.sin(i * 0.9) * 6));
+        }
+        final List<Offset> points =
+            (controller.currentContent! as _RecordingContent).points.toList();
+        controller.dispose();
+        return points;
+      }
+
+      double wobble(List<Offset> points) =>
+          points.map((Offset p) => p.dy.abs()).reduce(math.max);
+
+      // Raw input swings 6pt either side of the line it is meant to be.
+      expect(wobble(stroke(0)), closeTo(6, 0.1));
+      // The strongest setting has to leave a visually straight line behind.
+      expect(wobble(stroke(1)), lessThan(0.5));
+      // ...and the scale has to stay monotonic on the way there.
+      expect(wobble(stroke(0.5)), lessThan(wobble(stroke(0.2))));
+      expect(wobble(stroke(0.2)), lessThan(wobble(stroke(0))));
     });
 
     test('stabilises harder the further the canvas is zoomed in', () {
@@ -171,6 +201,46 @@ void main() {
 
       // Without the catch-up the smoothed stroke would stop well short of 200.
       expect(content.points.last, const Offset(200, 0));
+      controller.dispose();
+    });
+
+    test('curves the end of the stroke onto the finger', () {
+      final DrawingController controller =
+          DrawingController(content: _RecordingContent());
+      controller.setSmoothness(1);
+
+      // A quarter circle: a straight dash from the trailing ink to the release
+      // point would cut a visible chord across it.
+      controller.startDraw(const Offset(200, 0));
+      for (int i = 1; i <= 120; i++) {
+        final double t = i / 120 * math.pi / 2;
+        controller.drawing(Offset(200 * math.cos(t), 200 * math.sin(t)));
+      }
+      final _RecordingContent content =
+          controller.currentContent! as _RecordingContent;
+      controller.endDraw();
+
+      double turn(Offset a, Offset b) {
+        final double dot =
+            (a.dx * b.dx + a.dy * b.dy) / (a.distance * b.distance);
+        return math.acos(dot.clamp(-1.0, 1.0)) * 180 / math.pi;
+      }
+
+      double worstTurn = 0;
+      final List<Offset> points = content.points;
+      for (int i = 2; i < points.length; i++) {
+        final Offset a = points[i - 1] - points[i - 2];
+        final Offset b = points[i] - points[i - 1];
+        if (a.distance < 1e-6 || b.distance < 1e-6) {
+          continue;
+        }
+        worstTurn = math.max(worstTurn, turn(a, b));
+      }
+
+      // No corner anywhere, including where the catch-up tail joins on.
+      expect(worstTurn, lessThan(5));
+      expect(points.last.dx, closeTo(0, 0.001));
+      expect(points.last.dy, closeTo(200, 0.001));
       controller.dispose();
     });
 

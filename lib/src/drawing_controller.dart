@@ -171,18 +171,39 @@ class DrawingController extends ChangeNotifier {
   /// The lower this is the harder the filter, and the more the stroke ignores
   /// everything but the overall direction of travel — which is what makes long
   /// clean curves easy to draw.
-  static const double _kMinFollow = 0.02;
+  static const double _kMinFollow = 0.015;
+
+  /// Same, for the second filter pass. Running two passes instead of one turns
+  /// the response from first into second order: the tremor that survives the
+  /// first pass is attenuated again, and the emitted points land on a curve
+  /// rather than on a rounded-off polyline.
+  static const double _kMinSecondPassFollow = 0.15;
 
   /// Zoom level at which the extra stabilisation stops growing.
   static const double _kMaxZoomBoost = 4.0;
 
   /// How far the stabilised point may trail the finger at `smoothness == 1` and
   /// no zoom, in board units.
-  static const double _kMaxLagAtRest = 48.0;
+  ///
+  /// This is the constant that decides how clean a stroke can get: whenever the
+  /// filter would fall further behind than this, the leash takes over and the
+  /// stroke is shaped like a string of this length being dragged by the finger.
+  /// Tremor smaller than the leash barely moves the far end, so the longer it
+  /// is, the smoother the drawn curve.
+  static const double _kMaxLagAtRest = 160.0;
 
-  /// Number of interpolated points used to bring a stabilised stroke back onto
-  /// the real pointer position when the finger is lifted.
-  static const int _kSmoothingCatchUpSteps = 10;
+  /// Exponent applied to the slider before it scales the leash, so the extra
+  /// reach is concentrated at the top of the range instead of being spread
+  /// evenly over settings people use for everyday drawing.
+  static const double _kLagCurve = 1.5;
+
+  /// Board distance covered by a single catch-up point when a stabilised stroke
+  /// is brought back onto the real pointer position.
+  static const double _kSmoothingCatchUpSpacing = 4.0;
+
+  /// Bounds on the number of interpolated points used for that catch-up.
+  static const int _kMinSmoothingCatchUpSteps = 10;
+  static const int _kMaxSmoothingCatchUpSteps = 64;
 
   /// Drawing start point
   Offset? _startPoint;
@@ -221,8 +242,12 @@ class DrawingController extends ChangeNotifier {
   /// and therefore has to be composited through its own layer.
   bool _historyPictureHasEraser = false;
 
-  /// Last stabilised pointer position of the stroke in progress.
+  /// Position held by the first filter pass of the stroke in progress.
   Offset? _smoothedPoint;
+
+  /// Position held by the second filter pass, i.e. the point last handed to the
+  /// paint content.
+  Offset? _stabilisedPoint;
 
   /// Last raw (un-stabilised) pointer position of the stroke in progress.
   Offset? _lastRawPoint;
@@ -377,6 +402,7 @@ class DrawingController extends ChangeNotifier {
 
     _startPoint = startPoint;
     _smoothedPoint = startPoint;
+    _stabilisedPoint = startPoint;
     _lastRawPoint = startPoint;
     if (_paintContent is Eraser) {
       // The eraser punches through the already drawn pixels, so it needs a
@@ -398,6 +424,7 @@ class DrawingController extends ChangeNotifier {
     currentContent = null;
     eraserContent = null;
     _smoothedPoint = null;
+    _stabilisedPoint = null;
     _lastRawPoint = null;
     _disposeCachedImage();
   }
@@ -433,6 +460,7 @@ class DrawingController extends ChangeNotifier {
       currentContent = null;
       eraserContent = null;
       _smoothedPoint = null;
+      _stabilisedPoint = null;
       _lastRawPoint = null;
       _disposeCachedImage();
       return;
@@ -444,6 +472,7 @@ class DrawingController extends ChangeNotifier {
 
     _startPoint = null;
     _smoothedPoint = null;
+    _stabilisedPoint = null;
     _lastRawPoint = null;
     final int hisLen = _history.length;
 
@@ -636,9 +665,8 @@ class DrawingController extends ChangeNotifier {
   ///
   /// Returns `null` when there is nothing to draw.
   ui.Picture? historyPicture(Size size) {
-    final int end = _currentIndex < _history.length
-        ? _currentIndex
-        : _history.length;
+    final int end =
+        _currentIndex < _history.length ? _currentIndex : _history.length;
 
     if (end <= 0) {
       _invalidateHistoryPicture();
@@ -737,14 +765,24 @@ class DrawingController extends ChangeNotifier {
     return (base / math.sqrt(zoom)).clamp(0.0, 1.0);
   }
 
+  /// Same as [_followFactor] for the second pass. It stays much looser than the
+  /// first one: its job is to round off what the first pass and the leash emit,
+  /// not to add another helping of lag.
+  double _secondPassFollowFactor(double smoothness) =>
+      math.pow(_kMinSecondPassFollow, smoothness).toDouble().clamp(0.0, 1.0);
+
   /// Longest distance the stabilised point may trail the finger, in board units.
   ///
   /// Without this the strongest settings would fall arbitrarily far behind on a
-  /// fast stroke. Dividing by the zoom keeps the trailing distance constant on
-  /// screen, so the stroke feels the same however far the canvas is zoomed in.
+  /// fast stroke. Dividing by the zoom keeps the trailing distance from growing
+  /// with the magnification — but only by its square root, because dividing it
+  /// out entirely would shrink the leash to nothing exactly when the canvas is
+  /// zoomed in and the stroke is expected to be at its cleanest.
   double _maxLag(double smoothness) {
     final double zoom = drawConfig.value.inputScale.clamp(1.0, _kMaxZoomBoost);
-    return _kMaxLagAtRest * smoothness / zoom;
+    final double reach =
+        _kMaxLagAtRest * math.pow(smoothness, _kLagCurve).toDouble();
+    return reach / math.sqrt(zoom);
   }
 
   /// Pull the previous position part of the way towards [raw] instead of
@@ -753,25 +791,37 @@ class DrawingController extends ChangeNotifier {
   Offset _stabilise(Offset raw, PaintContent? content) {
     final double smoothness = drawConfig.value.smoothness.clamp(0.0, 1.0);
     final Offset? previous = _smoothedPoint;
+    final Offset? previousStabilised = _stabilisedPoint;
     if (smoothness <= 0 ||
         previous == null ||
+        previousStabilised == null ||
         !(content?.supportsInputSmoothing ?? true)) {
       _smoothedPoint = raw;
+      _stabilisedPoint = raw;
       return raw;
     }
 
     Offset smoothed = previous + (raw - previous) * _followFactor(smoothness);
+    Offset stabilised = previousStabilised +
+        (smoothed - previousStabilised) * _secondPassFollowFactor(smoothness);
 
-    // Leash the point to the finger so heavy smoothing stays usable.
-    final Offset behind = raw - smoothed;
+    // Leash the emitted point to the finger so heavy smoothing stays usable.
+    final Offset behind = raw - stabilised;
     final double lag = behind.distance;
     final double maxLag = _maxLag(smoothness);
     if (lag > maxLag) {
-      smoothed = raw - behind * (maxLag / lag);
+      final Offset leashed = raw - behind * (maxLag / lag);
+      // Carry both passes forward by the same correction. Leaving them where
+      // they were would pin them against the leash for the rest of the stroke,
+      // and a saturated filter simply copies the finger — tremor included —
+      // which is the one thing the strongest settings must not do.
+      smoothed += leashed - stabilised;
+      stabilised = leashed;
     }
 
     _smoothedPoint = smoothed;
-    return smoothed;
+    _stabilisedPoint = stabilised;
+    return stabilised;
   }
 
   /// Bring the stabilised stroke back onto the last real pointer position, so a
@@ -779,21 +829,51 @@ class DrawingController extends ChangeNotifier {
   void _catchUpSmoothing() {
     final PaintContent? content = eraserContent ?? currentContent;
     final Offset? raw = _lastRawPoint;
-    final Offset? smoothed = _smoothedPoint;
+    Offset? smoothed = _smoothedPoint;
+    Offset? stabilised = _stabilisedPoint;
     if (content == null ||
         raw == null ||
         smoothed == null ||
+        stabilised == null ||
         !content.supportsInputSmoothing ||
-        (raw - smoothed).distance <= 1) {
+        (raw - stabilised).distance <= 1) {
       return;
     }
 
-    for (int i = 1; i <= _kSmoothingCatchUpSteps; i++) {
-      content.drawing(
-        Offset.lerp(smoothed, raw, i / _kSmoothingCatchUpSteps)!,
-      );
+    final double smoothness = drawConfig.value.smoothness.clamp(0.0, 1.0);
+    final double follow = _followFactor(smoothness);
+    final double secondFollow = _secondPassFollowFactor(smoothness);
+    final double startLag = (raw - stabilised).distance;
+
+    // Step count follows the gap: the strongest settings trail far enough that
+    // a fixed number of steps would join the stroke up with visible facets.
+    final int steps = (startLag ~/ _kSmoothingCatchUpSpacing).clamp(
+      _kMinSmoothingCatchUpSteps,
+      _kMaxSmoothingCatchUpSteps,
+    );
+
+    for (int i = 1; i <= steps; i++) {
+      // Keep running the filter against the point the finger stopped on, and
+      // reel the leash in to nothing as it goes. The tail then curves onto the
+      // finger along the direction the stroke was already travelling, instead
+      // of cutting across to it in a straight line.
+      smoothed = smoothed! + (raw - smoothed) * follow;
+      stabilised = stabilised! + (smoothed - stabilised) * secondFollow;
+
+      final double maxLag = startLag * (1 - i / steps);
+      final Offset behind = raw - stabilised;
+      final double lag = behind.distance;
+      if (lag > maxLag) {
+        final Offset leashed = lag == 0 ? raw : raw - behind * (maxLag / lag);
+        smoothed += leashed - stabilised;
+        stabilised = leashed;
+      }
+
+      content.drawing(stabilised);
     }
+
     _smoothedPoint = raw;
+    _stabilisedPoint = raw;
   }
 
   /// Refresh surface canvas
