@@ -37,6 +37,14 @@ abstract class PaintContent {
   /// 返回包含绘制内容的最小矩形，如果内容为空则返回null
   Rect? get boundingBox;
 
+  /// Whether this content takes up room in the drawing.
+  ///
+  /// A drawing's bounding box is the union of its contents' boxes, and only
+  /// things that put paint on the board belong in it. An eraser takes paint
+  /// away: counting its path would grow the box around a region that is, by
+  /// construction, blank. Contents that only ever subtract opt out.
+  bool get affectsBounds => true;
+
   /// Whether the controller may stabilise (smooth) the pointer positions fed
   /// to [drawing].
   ///

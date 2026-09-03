@@ -87,6 +87,11 @@ class Eraser extends PaintContent {
     return bounds.inflate(halfStroke);
   }
 
+  /// An eraser only removes what is already there, so it never widens the
+  /// drawing — see [DrawingController.getBoundingBox].
+  @override
+  bool get affectsBounds => false;
+
   @override
   Eraser copy() => Eraser();
 

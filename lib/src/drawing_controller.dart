@@ -626,6 +626,11 @@ class DrawingController extends ChangeNotifier {
   }
 
   /// Combined bounding box of all contents and return the smallest rectangle that contains all the contents.
+  ///
+  /// Contents that only take paint away — the eraser — are left out: they do
+  /// not make the drawing any bigger, see [PaintContent.affectsBounds]. What
+  /// they took away is still counted, though, because this works from paths
+  /// rather than pixels; [getVisibleBoundingBox] is the one that knows.
   Rect? getBoundingBox() {
     if (_history.isEmpty || _currentIndex == 0) {
       return null;
@@ -633,7 +638,11 @@ class DrawingController extends ChangeNotifier {
 
     Rect? combinedBounds;
     for (int i = 0; i < _currentIndex && i < _history.length; i++) {
-      final Rect? bounds = _history[i].boundingBox;
+      final PaintContent content = _history[i];
+      if (!content.affectsBounds) {
+        continue;
+      }
+      final Rect? bounds = content.boundingBox;
       if (bounds != null && !bounds.isEmpty) {
         if (combinedBounds == null) {
           combinedBounds = bounds;
@@ -644,6 +653,158 @@ class DrawingController extends ChangeNotifier {
     }
 
     return combinedBounds;
+  }
+
+  /// Whether any committed content only takes paint away.
+  ///
+  /// When false, [getBoundingBox] is already exact and the pixel scan of
+  /// [getVisibleBoundingBox] has nothing to add.
+  bool get hasErasedContent {
+    for (int i = 0; i < _currentIndex && i < _history.length; i++) {
+      if (!_history[i].affectsBounds) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// The smallest rectangle around the pixels the committed history actually
+  /// leaves on the board, or null when it leaves none.
+  ///
+  /// [getBoundingBox] works from the contents' paths, which is cheap and exact
+  /// for anything that only adds paint. It cannot know what an eraser took
+  /// away: a stroke that was later rubbed out entirely still has a path, and
+  /// still claims its corner of the box. This rasterises the history — the
+  /// same display list the board paints from — and scans the alpha channel, so
+  /// what it measures is what is visible.
+  ///
+  /// [size] is the board the contents were drawn on. It is only used when the
+  /// history has never been painted; otherwise the size it was painted at
+  /// wins, so the scan sees exactly what the board shows.
+  ///
+  /// [sampleScale] trades precision for speed: at 0.5 the scan reads a quarter
+  /// of the bytes and the box is accurate to two board units, which is inside
+  /// any stroke width. [alphaThreshold] is how opaque a pixel has to be to
+  /// count, so antialiased fringes and near-transparent airbrush dust do not
+  /// stretch the box.
+  ///
+  /// Falls back to [getBoundingBox] when the board has no size to render at.
+  Future<Rect?> getVisibleBoundingBox({
+    Size? size,
+    double sampleScale = 0.5,
+    int alphaThreshold = 8,
+  }) async {
+    if (_history.isEmpty || _currentIndex == 0) {
+      return null;
+    }
+    final Size? boardSize =
+        _historyPictureSize ?? size ?? drawConfig.value.size;
+    if (boardSize == null || boardSize.isEmpty) {
+      return getBoundingBox();
+    }
+    final ui.Picture? picture = historyPicture(boardSize);
+    if (picture == null) {
+      return null;
+    }
+
+    final double scale = sampleScale <= 0 ? 1.0 : sampleScale;
+    final int width = math.max(1, (boardSize.width * scale).ceil());
+    final int height = math.max(1, (boardSize.height * scale).ceil());
+
+    // Rendered into a transparent buffer with no layer of its own, so the
+    // eraser's `BlendMode.clear` punches through to alpha 0 — which is exactly
+    // what makes an erased region read as empty below.
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    canvas.scale(scale);
+    canvas.drawPicture(picture);
+    final ui.Picture scaled = recorder.endRecording();
+    final ui.Image image = await scaled.toImage(width, height);
+    scaled.dispose();
+
+    final ByteData? data;
+    try {
+      data = await image.toByteData();
+    } finally {
+      image.dispose();
+    }
+    if (data == null) {
+      return getBoundingBox();
+    }
+
+    final Rect? pixels = visibleBounds(
+      data,
+      width: width,
+      height: height,
+      alphaThreshold: alphaThreshold,
+    );
+    if (pixels == null) {
+      return null;
+    }
+
+    // Back to board units. A sample pixel covers 1 / scale board units, and
+    // the antialiased edge just under the threshold sits in the next one out.
+    final Rect bounds = Rect.fromLTRB(
+      pixels.left / scale,
+      pixels.top / scale,
+      pixels.right / scale,
+      pixels.bottom / scale,
+    ).inflate(1 / scale);
+    return bounds.intersect(Offset.zero & boardSize);
+  }
+
+  /// The pixel rectangle of [rgba] whose alpha is above [alphaThreshold], in
+  /// whole pixels — `right` and `bottom` are one past the last opaque column
+  /// and row. Null when no pixel qualifies.
+  ///
+  /// [rgba] is the buffer `ui.Image.toByteData` returns for
+  /// `ImageByteFormat.rawRgba`: four bytes per pixel, rows of [width] pixels.
+  @visibleForTesting
+  static Rect? visibleBounds(
+    ByteData rgba, {
+    required int width,
+    required int height,
+    int alphaThreshold = 8,
+  }) {
+    int minX = width;
+    int minY = height;
+    int maxX = -1;
+    int maxY = -1;
+    final Uint8List bytes = rgba.buffer.asUint8List(
+      rgba.offsetInBytes,
+      rgba.lengthInBytes,
+    );
+    final int rowStride = width * 4;
+    for (int y = 0; y < height; y++) {
+      final int rowStart = y * rowStride;
+      // Alpha is the fourth byte of every pixel.
+      for (int i = rowStart + 3, x = 0; x < width; i += 4, x++) {
+        if (bytes[i] <= alphaThreshold) {
+          continue;
+        }
+        if (x < minX) {
+          minX = x;
+        }
+        if (x > maxX) {
+          maxX = x;
+        }
+        if (y < minY) {
+          minY = y;
+        }
+        if (y > maxY) {
+          maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) {
+      return null;
+    }
+    return Rect.fromLTRB(
+      minX.toDouble(),
+      minY.toDouble(),
+      maxX + 1.0,
+      maxY + 1.0,
+    );
   }
 
   // ---------------------------------------------------------------------
